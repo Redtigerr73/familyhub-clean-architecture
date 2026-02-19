@@ -31,6 +31,9 @@ public class DeleteTaskValidator : AbstractValidator<DeleteTask>
 
 /// <summary>
 /// CQRS: Handler de la commande DeleteTask.
+///
+/// Pragmatic Architecture : SaveChangesAsync est retire du handler.
+/// Le UnitOfWorkBehavior s'en charge automatiquement apres chaque commande.
 /// </summary>
 public class DeleteTaskHandler(IFamilyHubDbContext context)
     : ICommandHandler<DeleteTask, Result>
@@ -43,8 +46,9 @@ public class DeleteTaskHandler(IFamilyHubDbContext context)
             return Result.NotFound($"Tache {command.TaskId} introuvable.");
 
         context.Tasks.Remove(task);
-        await context.SaveChangesAsync(ct);
 
+        // Pragmatic Architecture : pas de SaveChangesAsync ici
+        // Le UnitOfWorkBehavior s'en charge automatiquement
         return Result.Success();
     }
 }

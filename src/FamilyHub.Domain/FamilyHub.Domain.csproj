@@ -7,6 +7,13 @@
     <RootNamespace>FamilyHub.Domain</RootNamespace>
   </PropertyGroup>
 
+  <!-- Pragmatic Architecture : Le Domain depend de Bricks (Shared Kernel)
+       Bricks fournit BaseEntity, IDomainEvent, ValueObject, IAuditable, AuditInfo...
+       Ce sont les "briques" de base du DDD, reutilisables dans n'importe quel projet. -->
+  <ItemGroup>
+    <ProjectReference Include="..\FamilyHub.Bricks\FamilyHub.Bricks.csproj" />
+  </ItemGroup>
+
   <!-- CQRS: Le Domain peut dependre d'Ardalis.Result pour exprimer les erreurs metier -->
   <!-- Le Result Pattern remplace les exceptions pour communiquer les echecs de maniere explicite -->
   <ItemGroup>

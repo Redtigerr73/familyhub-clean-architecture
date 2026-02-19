@@ -28,6 +28,9 @@ public class DeleteShoppingItemValidator : AbstractValidator<DeleteShoppingItem>
 
 /// <summary>
 /// CQRS: Handler de la commande DeleteShoppingItem.
+///
+/// Pragmatic Architecture : SaveChangesAsync est retire du handler.
+/// Le UnitOfWorkBehavior s'en charge automatiquement apres chaque commande.
 /// </summary>
 public class DeleteShoppingItemHandler(IFamilyHubDbContext context)
     : ICommandHandler<DeleteShoppingItem, Result>
@@ -40,8 +43,9 @@ public class DeleteShoppingItemHandler(IFamilyHubDbContext context)
             return Result.NotFound($"Article {command.ItemId} introuvable.");
 
         context.ShoppingItems.Remove(item);
-        await context.SaveChangesAsync(ct);
 
+        // Pragmatic Architecture : pas de SaveChangesAsync ici
+        // Le UnitOfWorkBehavior s'en charge automatiquement
         return Result.Success();
     }
 }

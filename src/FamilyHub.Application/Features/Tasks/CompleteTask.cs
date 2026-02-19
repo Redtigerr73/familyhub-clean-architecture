@@ -41,10 +41,11 @@ public class CompleteTaskValidator : AbstractValidator<CompleteTask>
 /// Illustre comment le handler orchestre :
 /// 1. Recupere l'entite depuis la base de donnees
 /// 2. Appelle la logique metier du DOMAINE (task.Complete())
-/// 3. Persiste le resultat
 ///
-/// La logique metier reste dans l'entite FamilyTask (DDD),
-/// le handler ne fait que coordonner.
+/// Pragmatic Architecture : SaveChangesAsync est retire du handler.
+/// Le UnitOfWorkBehavior s'en charge automatiquement apres chaque commande.
+/// L'evenement TaskCompleted est leve dans la methode Complete() du domaine
+/// et sera publie automatiquement par le DispatchDomainEventsInterceptor.
 /// </summary>
 public class CompleteTaskHandler(IFamilyHubDbContext context)
     : ICommandHandler<CompleteTask, Result>
@@ -58,13 +59,15 @@ public class CompleteTaskHandler(IFamilyHubDbContext context)
             return Result.NotFound($"Tache {command.TaskId} introuvable.");
 
         // CQRS: La logique metier est dans l'entite (Domain)
-        // Le handler ne fait que deleguer et persister
+        // Le handler ne fait que deleguer. L'evenement TaskCompleted
+        // est leve dans Complete() et sera publie automatiquement.
         var result = task.Complete();
 
         if (!result.IsSuccess)
             return result;
 
-        await context.SaveChangesAsync(ct);
+        // Pragmatic Architecture : pas de SaveChangesAsync ici
+        // Le UnitOfWorkBehavior s'en charge automatiquement
         return Result.Success();
     }
 }

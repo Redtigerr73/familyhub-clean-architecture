@@ -67,7 +67,7 @@ public class CreateTaskValidator : AbstractValidator<CreateTask>
 public class CreateTaskHandler(IFamilyHubDbContext context)
     : ICommandHandler<CreateTask, Result<Guid>>
 {
-    public async ValueTask<Result<Guid>> Handle(CreateTask command, CancellationToken ct)
+    public ValueTask<Result<Guid>> Handle(CreateTask command, CancellationToken ct)
     {
         var task = new FamilyTask
         {
@@ -79,10 +79,16 @@ public class CreateTaskHandler(IFamilyHubDbContext context)
             AssignedToId = command.AssignedToId
         };
 
+        // Pragmatic Architecture : Lever l'evenement de domaine TaskCreated
+        // L'evenement sera publie automatiquement par le DispatchDomainEventsInterceptor
+        task.RaiseCreatedEvent();
+
         context.Tasks.Add(task);
-        await context.SaveChangesAsync(ct);
+
+        // Pragmatic Architecture : SaveChangesAsync est retire des handlers
+        // Le UnitOfWorkBehavior s'en charge automatiquement apres chaque commande
 
         // CQRS: On retourne un Result.Success avec l'Id de la tache creee
-        return Result.Success(task.Id);
+        return ValueTask.FromResult(Result.Success(task.Id));
     }
 }

@@ -13,7 +13,11 @@
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    @* Module 06 : CascadingAuthenticationState fournit l'etat d'authentification
+       a tous les composants enfants (AuthorizeView, etc.) *@
+    <CascadingAuthenticationState>
+        <Routes @rendermode="InteractiveServer" />
+    </CascadingAuthenticationState>
 
     <script src="_framework/blazor.web.js"></script>
 

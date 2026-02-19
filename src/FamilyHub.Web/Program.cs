@@ -1,7 +1,9 @@
+using FamilyHub.Domain.Entities;
 using FamilyHub.Infrastructure;
 using FamilyHub.Infrastructure.Database;
 using FamilyHub.Web.Endpoints;
 using FamilyHub.Web.Infrastructure;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 // ===================================================================
@@ -46,6 +48,12 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
 
+// Module 06 : Authentication middleware
+// UseAuthentication lit le cookie et cree le ClaimsPrincipal
+// UseAuthorization verifie les [Authorize] et les policies
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapRazorComponents<FamilyHub.Web.Components.App>()
     .AddInteractiveServerRenderMode();
 
@@ -53,11 +61,21 @@ app.MapRazorComponents<FamilyHub.Web.Components.App>()
 app.MapTaskEndpoints();
 
 // --- Creation automatique de la base de donnees en developpement ---
+// Module 06 : On cree aussi les roles par defaut (Admin, Parent, Enfant)
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<FamilyHubDbContext>();
     await db.Database.EnsureCreatedAsync();
+
+    // Creer les roles par defaut si ils n'existent pas encore
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    string[] roles = ["Admin", "Parent", "Enfant"];
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+            await roleManager.CreateAsync(new IdentityRole(role));
+    }
 }
 
 app.Run();

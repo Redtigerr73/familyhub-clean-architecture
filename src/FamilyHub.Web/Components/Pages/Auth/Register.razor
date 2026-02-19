@@ -1,0 +1,90 @@
+@page "/register"
+@using FamilyHub.Application.Features.Auth
+@using Mediator
+@inject ISender Sender
+@inject NavigationManager Navigation
+
+<PageTitle>Inscription - FamilyHub</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h3 class="card-title text-center mb-4">Creer un compte</h3>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger">@errorMessage</div>
+                }
+
+                <EditForm Model="model" OnValidSubmit="HandleRegister" FormName="register">
+                    <div class="mb-3">
+                        <label class="form-label">Nom d'affichage</label>
+                        <InputText @bind-Value="model.DisplayName" class="form-control" placeholder="Jean Dupont" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <InputText @bind-Value="model.Email" class="form-control" placeholder="Email" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mot de passe</label>
+                        <InputText @bind-Value="model.Password" type="password" class="form-control" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirmer le mot de passe</label>
+                        <InputText @bind-Value="model.ConfirmPassword" type="password" class="form-control" />
+                    </div>
+                    <button type="submit" class="btn btn-success w-100" disabled="@isLoading">
+                        @if (isLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        Creer mon compte
+                    </button>
+                </EditForm>
+
+                <hr />
+                <p class="text-center mb-0">
+                    Deja un compte ? <a href="/login">Se connecter</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterModel model = new();
+    private string? errorMessage;
+    private bool isLoading;
+
+    private async Task HandleRegister()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        if (model.Password != model.ConfirmPassword)
+        {
+            errorMessage = "Les mots de passe ne correspondent pas.";
+            isLoading = false;
+            return;
+        }
+
+        var result = await Sender.Send(new RegisterCommand(model.Email, model.DisplayName, model.Password));
+
+        if (result.IsSuccess)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+        else
+        {
+            errorMessage = string.Join(", ", result.ValidationErrors.Select(e => e.ErrorMessage));
+        }
+
+        isLoading = false;
+    }
+
+    private sealed class RegisterModel
+    {
+        public string DisplayName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

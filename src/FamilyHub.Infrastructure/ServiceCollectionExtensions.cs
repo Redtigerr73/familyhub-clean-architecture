@@ -1,9 +1,12 @@
 using FamilyHub.Application.Interfaces;
+using FamilyHub.Domain.Entities;
+using FamilyHub.Infrastructure.Auth;
 using FamilyHub.Infrastructure.Behaviors;
 using FamilyHub.Infrastructure.Database;
 using FamilyHub.Infrastructure.Database.Interceptors;
 using FluentValidation;
 using Mediator;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -66,6 +69,27 @@ public static class ServiceCollectionExtensions
         // 4. Enregistrement de l'interface IFamilyHubDbContext -> FamilyHubDbContext
         services.AddScoped<IFamilyHubDbContext>(provider =>
             provider.GetRequiredService<FamilyHubDbContext>());
+
+        // --- Module 06 : Authentication ---
+        // .NET Identity avec stockage EF Core
+        // AddIdentity enregistre UserManager, SignInManager, RoleManager et tout le pipeline d'authentification
+        services.AddIdentity<AppUser, IdentityRole>(options =>
+        {
+            // Regles de mot de passe assouplies pour un POC pedagogique
+            // En production, utiliser des regles plus strictes !
+            options.Password.RequireDigit = false;
+            options.Password.RequireUppercase = false;
+            options.Password.RequireNonAlphanumeric = false;
+            options.Password.RequiredLength = 6;
+            options.User.RequireUniqueEmail = true;
+        })
+        .AddEntityFrameworkStores<FamilyHubDbContext>()
+        .AddDefaultTokenProviders();
+
+        // IUserContext : acces a l'utilisateur courant depuis n'importe quelle couche
+        // HttpContextAccessor permet de lire le cookie d'authentification
+        services.AddHttpContextAccessor();
+        services.AddScoped<IUserContext, UserContext>();
 
         // 5. CQRS: Enregistrement du Mediator source-generated
         //    AddMediator() scanne l'assembly pour trouver tous les handlers

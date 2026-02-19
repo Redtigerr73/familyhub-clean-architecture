@@ -1,0 +1,13 @@
+@page "/logout"
+@using FamilyHub.Application.Features.Auth
+@using Mediator
+@inject ISender Sender
+@inject NavigationManager Navigation
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await Sender.Send(new LogoutCommand());
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}

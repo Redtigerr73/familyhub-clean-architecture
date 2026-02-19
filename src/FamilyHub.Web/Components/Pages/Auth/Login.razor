@@ -1,0 +1,73 @@
+@page "/login"
+@using FamilyHub.Application.Features.Auth
+@using Mediator
+@inject ISender Sender
+@inject NavigationManager Navigation
+
+<PageTitle>Connexion - FamilyHub</PageTitle>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h3 class="card-title text-center mb-4">Connexion</h3>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger">@errorMessage</div>
+                }
+
+                <EditForm Model="model" OnValidSubmit="HandleLogin" FormName="login">
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <InputText @bind-Value="model.Email" class="form-control" placeholder="Email" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mot de passe</label>
+                        <InputText @bind-Value="model.Password" type="password" class="form-control" />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+                        @if (isLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        Se connecter
+                    </button>
+                </EditForm>
+
+                <hr />
+                <p class="text-center mb-0">
+                    Pas encore de compte ? <a href="/register">Creer un compte</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel model = new();
+    private string? errorMessage;
+    private bool isLoading;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        var result = await Sender.Send(new LoginCommand(model.Email, model.Password));
+
+        if (result.IsSuccess)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+        else
+        {
+            errorMessage = string.Join(", ", result.ValidationErrors.Select(e => e.ErrorMessage));
+        }
+
+        isLoading = false;
+    }
+
+    private sealed class LoginModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

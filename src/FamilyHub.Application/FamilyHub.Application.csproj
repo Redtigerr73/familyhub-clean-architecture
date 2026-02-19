@@ -24,4 +24,12 @@
     <PackageReference Include="Ardalis.Result" Version="10.1.0" />
   </ItemGroup>
 
+  <!-- Module 06 : Authentication -->
+  <!-- Les handlers Auth ont besoin de SignInManager et UserManager -->
+  <!-- FrameworkReference necessaire car SignInManager fait partie du framework ASP.NET Core -->
+  <!-- (et non d'un package NuGet), donc un projet non-Web doit le referencer explicitement -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
 </Project>

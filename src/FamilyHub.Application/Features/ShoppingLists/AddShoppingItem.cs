@@ -41,11 +41,14 @@ public class AddShoppingItemValidator : AbstractValidator<AddShoppingItem>
 
 /// <summary>
 /// CQRS: Handler de la commande AddShoppingItem.
+///
+/// Pragmatic Architecture : SaveChangesAsync est retire du handler.
+/// Le UnitOfWorkBehavior s'en charge automatiquement apres chaque commande.
 /// </summary>
 public class AddShoppingItemHandler(IFamilyHubDbContext context)
     : ICommandHandler<AddShoppingItem, Result<Guid>>
 {
-    public async ValueTask<Result<Guid>> Handle(AddShoppingItem command, CancellationToken ct)
+    public ValueTask<Result<Guid>> Handle(AddShoppingItem command, CancellationToken ct)
     {
         var item = new ShoppingItem
         {
@@ -57,8 +60,9 @@ public class AddShoppingItemHandler(IFamilyHubDbContext context)
         };
 
         context.ShoppingItems.Add(item);
-        await context.SaveChangesAsync(ct);
 
-        return Result.Success(item.Id);
+        // Pragmatic Architecture : pas de SaveChangesAsync ici
+        // Le UnitOfWorkBehavior s'en charge automatiquement
+        return ValueTask.FromResult(Result.Success(item.Id));
     }
 }

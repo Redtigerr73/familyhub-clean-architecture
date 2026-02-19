@@ -31,6 +31,9 @@ public class MarkItemPurchasedValidator : AbstractValidator<MarkItemPurchased>
 
 /// <summary>
 /// CQRS: Handler de la commande MarkItemPurchased.
+///
+/// Pragmatic Architecture : SaveChangesAsync est retire du handler.
+/// Le UnitOfWorkBehavior s'en charge automatiquement apres chaque commande.
 /// </summary>
 public class MarkItemPurchasedHandler(IFamilyHubDbContext context)
     : ICommandHandler<MarkItemPurchased, Result>
@@ -44,8 +47,9 @@ public class MarkItemPurchasedHandler(IFamilyHubDbContext context)
 
         // CQRS: La logique metier reste dans l'entite du domaine
         item.MarkAsPurchased();
-        await context.SaveChangesAsync(ct);
 
+        // Pragmatic Architecture : pas de SaveChangesAsync ici
+        // Le UnitOfWorkBehavior s'en charge automatiquement
         return Result.Success();
     }
 }

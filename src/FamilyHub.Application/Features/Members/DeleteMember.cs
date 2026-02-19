@@ -28,6 +28,9 @@ public class DeleteMemberValidator : AbstractValidator<DeleteMember>
 
 /// <summary>
 /// CQRS: Handler de la commande DeleteMember.
+///
+/// Pragmatic Architecture : SaveChangesAsync est retire du handler.
+/// Le UnitOfWorkBehavior s'en charge automatiquement apres chaque commande.
 /// </summary>
 public class DeleteMemberHandler(IFamilyHubDbContext context)
     : ICommandHandler<DeleteMember, Result>
@@ -40,8 +43,9 @@ public class DeleteMemberHandler(IFamilyHubDbContext context)
             return Result.NotFound($"Membre {command.MemberId} introuvable.");
 
         context.Members.Remove(member);
-        await context.SaveChangesAsync(ct);
 
+        // Pragmatic Architecture : pas de SaveChangesAsync ici
+        // Le UnitOfWorkBehavior s'en charge automatiquement
         return Result.Success();
     }
 }

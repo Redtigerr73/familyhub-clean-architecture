@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>FamilyHub.Bricks</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Pragmatic Architecture : Bricks = Shared Kernel (noyau partage)
+       Ce projet contient les abstractions de base reutilisables par TOUTES les couches.
+       Il ne depend d'AUCUN autre projet de la solution (zero couplage).
+
+       Mediator.Abstractions : pour definir IDomainEvent (INotification)
+       System.ComponentModel.Annotations : pour [NotMapped] et autres attributs -->
+  <ItemGroup>
+    <PackageReference Include="Mediator.Abstractions" Version="3.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
+    <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,6 +1,7 @@
 using FamilyHub.Application.Interfaces;
 using FamilyHub.Infrastructure.Behaviors;
 using FamilyHub.Infrastructure.Database;
+using FamilyHub.Infrastructure.Database.Interceptors;
 using FluentValidation;
 using Mediator;
 using Microsoft.EntityFrameworkCore;
@@ -12,14 +13,23 @@ namespace FamilyHub.Infrastructure;
 /// <summary>
 /// Extension methods pour enregistrer tous les services de l'Infrastructure.
 ///
-/// CQRS: Cette classe a ete mise a jour pour enregistrer :
+/// Pragmatic Architecture : Cette classe a ete mise a jour pour enregistrer :
 /// 1. Le Mediator source-generated (pas MediatR !)
-/// 2. Les Pipeline Behaviors (Logging, Validation)
+/// 2. Les 4 Pipeline Behaviors dans l'ORDRE : Logging -> Validation -> Transaction -> UnitOfWork
 /// 3. Les validateurs FluentValidation (via assembly scanning)
+/// 4. Les Intercepteurs EF Core (Auditable + DomainEvents)
+/// 5. TimeProvider pour l'injection de l'horloge testable
 ///
-/// Le Mediator remplace les services (TaskService, MemberService, ShoppingService).
-/// Au lieu d'injecter un service specifique, on injecte ISender et on envoie
-/// des commandes/requetes. Le Mediator les route vers le bon handler.
+/// L'ORDRE des Pipeline Behaviors est CRUCIAL :
+/// - Logging (1er) : logge chaque requete, meme si la validation echoue
+/// - Validation (2eme) : rejette les donnees invalides AVANT d'ouvrir une transaction
+/// - Transaction (3eme) : enveloppe la commande dans une transaction
+/// - UnitOfWork (4eme) : appelle SaveChanges a la fin de la commande
+/// - Handler (dernier) : execute la logique metier
+///
+/// Les intercepteurs EF Core agissent au niveau de la base de donnees :
+/// - AuditableInterceptor : remplit automatiquement Created/Modified
+/// - DispatchDomainEventsInterceptor : publie les evenements de domaine apres SaveChanges
 /// </summary>
 public static class ServiceCollectionExtensions
 {
@@ -27,34 +37,55 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // 1. Enregistrement du DbContext avec SQL Server
+        // 1. Pragmatic Architecture : TimeProvider en Singleton
+        //    Utilise TimeProvider.System en production (heure reelle)
+        //    Remplacable par FakeTimeProvider dans les tests
+        services.AddSingleton(TimeProvider.System);
+
+        // 2. Pragmatic Architecture : Intercepteurs EF Core en Scoped
+        //    Scoped car ils doivent vivre le temps d'une requete HTTP
+        //    (meme duree de vie que le DbContext)
+        services.AddScoped<AuditableInterceptor>();
+        services.AddScoped<DispatchDomainEventsInterceptor>();
+
+        // 3. Enregistrement du DbContext avec SQL Server et les intercepteurs
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-        services.AddDbContext<FamilyHubDbContext>(options =>
-            options.UseSqlServer(connectionString));
+        services.AddDbContext<FamilyHubDbContext>((sp, options) =>
+        {
+            // Pragmatic Architecture : Ajouter les intercepteurs au DbContext
+            // Ils s'executeront automatiquement a chaque SaveChanges
+            options.AddInterceptors(
+                sp.GetRequiredService<AuditableInterceptor>(),
+                sp.GetRequiredService<DispatchDomainEventsInterceptor>());
 
-        // 2. Enregistrement de l'interface IFamilyHubDbContext -> FamilyHubDbContext
+            options.UseSqlServer(connectionString);
+        });
+
+        // 4. Enregistrement de l'interface IFamilyHubDbContext -> FamilyHubDbContext
         services.AddScoped<IFamilyHubDbContext>(provider =>
             provider.GetRequiredService<FamilyHubDbContext>());
 
-        // 3. CQRS: Enregistrement du Mediator source-generated
-        // AddMediator() scanne l'assembly pour trouver tous les handlers
-        // et genere le code de routage au compile-time (pas de reflexion !)
+        // 5. CQRS: Enregistrement du Mediator source-generated
+        //    AddMediator() scanne l'assembly pour trouver tous les handlers
+        //    et genere le code de routage au compile-time (pas de reflexion !)
         services.AddMediator(options =>
         {
-            // L'assembly qui contient les handlers (Application layer)
             options.ServiceLifetime = ServiceLifetime.Scoped;
         });
 
-        // 4. CQRS: Enregistrement des Pipeline Behaviors
-        // L'ordre d'enregistrement = l'ordre d'execution dans le pipeline :
-        // Logging -> Validation -> Handler
+        // 6. Pragmatic Architecture : Enregistrement des 4 Pipeline Behaviors
+        //    L'ORDRE d'enregistrement = l'ORDRE d'execution dans le pipeline.
+        //    Chaque behavior enveloppe le suivant comme des poupees russes :
+        //    Logging [ Validation [ Transaction [ UnitOfWork [ Handler ] ] ] ]
         services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
+        services.AddScoped(typeof(IPipelineBehavior<,>), typeof(UnitOfWorkBehavior<,>));
 
-        // 5. CQRS: Enregistrement des validateurs FluentValidation
-        // Scanne l'assembly Application pour trouver tous les AbstractValidator<T>
+        // 7. CQRS: Enregistrement des validateurs FluentValidation
+        //    Scanne l'assembly Application pour trouver tous les AbstractValidator<T>
         services.AddValidatorsFromAssemblyContaining<Application.Features.Tasks.CreateTaskValidator>();
 
         return services;

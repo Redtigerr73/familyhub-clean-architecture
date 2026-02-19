@@ -52,11 +52,14 @@ public class CreateMemberValidator : AbstractValidator<CreateMember>
 
 /// <summary>
 /// CQRS: Handler de la commande CreateMember.
+///
+/// Pragmatic Architecture : SaveChangesAsync est retire du handler.
+/// Le UnitOfWorkBehavior s'en charge automatiquement apres chaque commande.
 /// </summary>
 public class CreateMemberHandler(IFamilyHubDbContext context)
     : ICommandHandler<CreateMember, Result<Guid>>
 {
-    public async ValueTask<Result<Guid>> Handle(CreateMember command, CancellationToken ct)
+    public ValueTask<Result<Guid>> Handle(CreateMember command, CancellationToken ct)
     {
         var member = new FamilyMember
         {
@@ -68,8 +71,9 @@ public class CreateMemberHandler(IFamilyHubDbContext context)
         };
 
         context.Members.Add(member);
-        await context.SaveChangesAsync(ct);
 
-        return Result.Success(member.Id);
+        // Pragmatic Architecture : pas de SaveChangesAsync ici
+        // Le UnitOfWorkBehavior s'en charge automatiquement
+        return ValueTask.FromResult(Result.Success(member.Id));
     }
 }

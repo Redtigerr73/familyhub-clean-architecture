@@ -1,0 +1,111 @@
+@page "/members"
+@using FamilyHub.Application.Features.Members
+@inject MemberService MemberService
+
+<h1>Membres de la Famille</h1>
+
+<!-- Formulaire d'ajout -->
+<div class="card mb-4">
+    <div class="card-header"><h5>Ajouter un Membre</h5></div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <input @bind="_firstName" class="form-control" placeholder="Prenom" />
+            </div>
+            <div class="col-md-3">
+                <input @bind="_lastName" class="form-control" placeholder="Nom" />
+            </div>
+            <div class="col-md-3">
+                <input @bind="_email" class="form-control" placeholder="Email (optionnel)" />
+            </div>
+            <div class="col-md-2">
+                <select @bind="_role" class="form-select">
+                    <option value="Parent">Parent</option>
+                    <option value="Enfant">Enfant</option>
+                    <option value="Autre">Autre</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button @onclick="AddMember" class="btn btn-primary"
+                        disabled="@(string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName))">
+                    Ajouter
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des membres -->
+@if (!_members.Any())
+{
+    <div class="alert alert-info">Aucun membre. Ajoutez le premier membre de la famille !</div>
+}
+else
+{
+    <div class="row">
+        @foreach (var member in _members)
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">@member.FullName</h5>
+                        <p class="card-text">
+                            <span class="badge bg-info">@member.Role</span>
+                            @if (!string.IsNullOrEmpty(member.Email))
+                            {
+                                <br /><small class="text-muted">@member.Email</small>
+                            }
+                        </p>
+                        <p class="card-text">
+                            <small>Taches assignees : @member.AssignedTasks.Count</small>
+                        </p>
+                        <button @onclick="() => DeleteMember(member.Id)"
+                                class="btn btn-sm btn-outline-danger">
+                            Supprimer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<FamilyMember> _members = [];
+    private string _firstName = "";
+    private string _lastName = "";
+    private string _email = "";
+    private string _role = "Parent";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMembers();
+    }
+
+    private async Task LoadMembers()
+    {
+        _members = await MemberService.GetAllMembersAsync();
+    }
+
+    private async Task AddMember()
+    {
+        if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName)) return;
+
+        await MemberService.CreateMemberAsync(
+            _firstName, _lastName,
+            string.IsNullOrWhiteSpace(_email) ? null : _email,
+            _role);
+
+        _firstName = "";
+        _lastName = "";
+        _email = "";
+        _role = "Parent";
+        await LoadMembers();
+    }
+
+    private async Task DeleteMember(Guid id)
+    {
+        await MemberService.DeleteMemberAsync(id);
+        await LoadMembers();
+    }
+}

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>FamilyHub.Web</RootNamespace>
+  </PropertyGroup>
+
+  <!-- La couche Web (Presentation) depend de Infrastructure -->
+  <!-- C'est ici qu'on "branche" tout ensemble via l'injection de dependances -->
+  <ItemGroup>
+    <ProjectReference Include="..\FamilyHub.Infrastructure\FamilyHub.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

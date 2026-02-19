@@ -1,0 +1,82 @@
+@page "/"
+@using FamilyHub.Application.Features.Tasks
+@using FamilyHub.Application.Features.Members
+@inject TaskService TaskService
+@inject MemberService MemberService
+
+<!--
+    Page d'accueil de FamilyHub.
+    Affiche un tableau de bord avec les statistiques de la famille.
+
+    @inject : C'est l'injection de dependances de Blazor.
+    Le framework injecte automatiquement les services enregistres dans le DI container.
+-->
+
+<h1>Bienvenue sur FamilyHub</h1>
+<p class="lead">Votre assistant de gestion familiale</p>
+
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Membres</h5>
+                <p class="card-text display-4">@_memberCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Taches actives</h5>
+                <p class="card-text display-4">@_activeTaskCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-danger mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Taches en retard</h5>
+                <p class="card-text display-4">@_overdueCount</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_overdueTasks.Any())
+{
+    <div class="alert alert-warning mt-3">
+        <h5>Taches en retard :</h5>
+        <ul>
+            @foreach (var task in _overdueTasks)
+            {
+                <li>
+                    <strong>@task.Title</strong>
+                    - Echeance : @task.DueDate?.ToString("dd/MM/yyyy")
+                    @if (task.AssignedTo is not null)
+                    {
+                        <span class="text-muted">(@task.AssignedTo.FullName)</span>
+                    }
+                </li>
+            }
+        </ul>
+    </div>
+}
+
+@code {
+    private int _memberCount;
+    private int _activeTaskCount;
+    private int _overdueCount;
+    private IReadOnlyList<FamilyTask> _overdueTasks = [];
+
+    // OnInitializedAsync : appele une seule fois quand le composant est cree
+    protected override async Task OnInitializedAsync()
+    {
+        var members = await MemberService.GetAllMembersAsync();
+        var tasks = await TaskService.GetAllTasksAsync();
+        _overdueTasks = await TaskService.GetOverdueTasksAsync();
+
+        _memberCount = members.Count;
+        _activeTaskCount = tasks.Count(t => t.Status != FamilyTaskStatus.Done);
+        _overdueCount = _overdueTasks.Count;
+    }
+}

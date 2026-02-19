@@ -1,0 +1,135 @@
+@page "/shopping"
+@using FamilyHub.Application.Features.ShoppingLists
+@inject ShoppingService ShoppingService
+
+<h1>Liste de Courses</h1>
+
+<!-- Formulaire d'ajout -->
+<div class="card mb-4">
+    <div class="card-header"><h5>Ajouter un Article</h5></div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <input @bind="_name" class="form-control" placeholder="Nom de l'article" />
+            </div>
+            <div class="col-md-2">
+                <input @bind="_quantity" type="number" min="1" class="form-control" placeholder="Qte" />
+            </div>
+            <div class="col-md-3">
+                <select @bind="_category" class="form-select">
+                    <option value="">Categorie...</option>
+                    <option value="Fruits & Legumes">Fruits & Legumes</option>
+                    <option value="Viandes">Viandes</option>
+                    <option value="Produits laitiers">Produits laitiers</option>
+                    <option value="Boulangerie">Boulangerie</option>
+                    <option value="Boissons">Boissons</option>
+                    <option value="Hygiene">Hygiene</option>
+                    <option value="Autre">Autre</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button @onclick="AddItem" class="btn btn-primary"
+                        disabled="@string.IsNullOrWhiteSpace(_name)">
+                    Ajouter
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toggle : afficher tout ou seulement les non-achetes -->
+<div class="mb-3">
+    <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" @bind="_showAll" @bind:after="LoadItems" />
+        <label class="form-check-label">Afficher les articles deja achetes</label>
+    </div>
+</div>
+
+<!-- Liste des articles -->
+@if (!_items.Any())
+{
+    <div class="alert alert-info">La liste de courses est vide.</div>
+}
+else
+{
+    @foreach (var group in _items.GroupBy(i => i.Category ?? "Sans categorie"))
+    {
+        <h5 class="mt-3">@group.Key</h5>
+        <ul class="list-group mb-2">
+            @foreach (var item in group)
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center @(item.IsPurchased ? "list-group-item-success" : "")">
+                    <div>
+                        <span style="@(item.IsPurchased ? "text-decoration: line-through;" : "")">
+                            @item.Name
+                        </span>
+                        @if (item.Quantity > 1)
+                        {
+                            <span class="badge bg-secondary ms-2">x@item.Quantity</span>
+                        }
+                    </div>
+                    <div>
+                        @if (!item.IsPurchased)
+                        {
+                            <button @onclick="() => MarkPurchased(item.Id)"
+                                    class="btn btn-sm btn-success me-1">
+                                Achete
+                            </button>
+                        }
+                        <button @onclick="() => DeleteItem(item.Id)"
+                                class="btn btn-sm btn-outline-danger">
+                            Retirer
+                        </button>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    private IReadOnlyList<ShoppingItem> _items = [];
+    private string _name = "";
+    private int _quantity = 1;
+    private string _category = "";
+    private bool _showAll;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadItems();
+    }
+
+    private async Task LoadItems()
+    {
+        _items = _showAll
+            ? await ShoppingService.GetShoppingListAsync()
+            : await ShoppingService.GetUnpurchasedItemsAsync();
+    }
+
+    private async Task AddItem()
+    {
+        if (string.IsNullOrWhiteSpace(_name)) return;
+
+        await ShoppingService.AddItemAsync(
+            _name, _quantity,
+            string.IsNullOrWhiteSpace(_category) ? null : _category,
+            null);
+
+        _name = "";
+        _quantity = 1;
+        _category = "";
+        await LoadItems();
+    }
+
+    private async Task MarkPurchased(Guid id)
+    {
+        await ShoppingService.MarkAsPurchasedAsync(id);
+        await LoadItems();
+    }
+
+    private async Task DeleteItem(Guid id)
+    {
+        await ShoppingService.DeleteItemAsync(id);
+        await LoadItems();
+    }
+}

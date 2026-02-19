@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>FamilyHub.Application</RootNamespace>
+  </PropertyGroup>
+
+  <!-- L'Application depend UNIQUEMENT du Domain -->
+  <!-- Elle definit les cas d'utilisation (use cases) de l'application -->
+  <ItemGroup>
+    <ProjectReference Include="..\FamilyHub.Domain\FamilyHub.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>

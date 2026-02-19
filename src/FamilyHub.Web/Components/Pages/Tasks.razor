@@ -1,0 +1,171 @@
+@page "/tasks"
+@using FamilyHub.Application.Features.Tasks
+@using FamilyHub.Application.Features.Members
+@inject TaskService TaskService
+@inject MemberService MemberService
+
+<!--
+    Page de gestion des taches familiales.
+
+    Architecture : cette page (couche Presentation) utilise le TaskService (couche Application)
+    qui lui-meme utilise le DbContext (couche Infrastructure) pour acceder aux donnees.
+
+    La page ne sait PAS comment les donnees sont stockees.
+    Elle ne sait PAS quel est le SGBD utilise.
+    Elle sait juste qu'elle peut appeler TaskService.
+-->
+
+<h1>Taches Familiales</h1>
+
+<!-- Formulaire de creation d'une nouvelle tache -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>Nouvelle Tache</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <input @bind="_newTitle" class="form-control" placeholder="Titre de la tache" />
+            </div>
+            <div class="col-md-3">
+                <input @bind="_newDescription" class="form-control" placeholder="Description (optionnel)" />
+            </div>
+            <div class="col-md-2">
+                <select @bind="_newPriority" class="form-select">
+                    <option value="@TaskPriority.Low">Basse</option>
+                    <option value="@TaskPriority.Medium">Moyenne</option>
+                    <option value="@TaskPriority.High">Haute</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select @bind="_newAssignedToId" class="form-select">
+                    <option value="">Non assigne</option>
+                    @foreach (var member in _members)
+                    {
+                        <option value="@member.Id">@member.FullName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button @onclick="CreateTask" class="btn btn-primary" disabled="@string.IsNullOrWhiteSpace(_newTitle)">
+                    Ajouter
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des taches -->
+@if (!_tasks.Any())
+{
+    <div class="alert alert-info">
+        Aucune tache pour le moment. Creez votre premiere tache ci-dessus !
+    </div>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Titre</th>
+                <th>Priorite</th>
+                <th>Statut</th>
+                <th>Assigne a</th>
+                <th>Echeance</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var task in _tasks)
+            {
+                <tr class="@(task.IsOverdue ? "table-danger" : "")">
+                    <td>@task.Title</td>
+                    <td>
+                        <span class="badge @GetPriorityBadgeClass(task.Priority)">
+                            @task.Priority
+                        </span>
+                    </td>
+                    <td>@task.Status</td>
+                    <td>@(task.AssignedTo?.FullName ?? "Non assigne")</td>
+                    <td>@(task.DueDate?.ToString("dd/MM/yyyy") ?? "-")</td>
+                    <td>
+                        @if (task.Status != FamilyTaskStatus.Done)
+                        {
+                            <button @onclick="() => CompleteTask(task.Id)"
+                                    class="btn btn-sm btn-success me-1">
+                                Terminer
+                            </button>
+                        }
+                        <button @onclick="() => DeleteTask(task.Id)"
+                                class="btn btn-sm btn-outline-danger">
+                            Supprimer
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<FamilyTask> _tasks = [];
+    private IReadOnlyList<FamilyMember> _members = [];
+
+    // Champs du formulaire
+    private string _newTitle = "";
+    private string _newDescription = "";
+    private TaskPriority _newPriority = TaskPriority.Medium;
+    private string _newAssignedToId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _tasks = await TaskService.GetAllTasksAsync();
+        _members = await MemberService.GetAllMembersAsync();
+    }
+
+    private async Task CreateTask()
+    {
+        if (string.IsNullOrWhiteSpace(_newTitle)) return;
+
+        Guid? assignedToId = Guid.TryParse(_newAssignedToId, out var id) ? id : null;
+
+        await TaskService.CreateTaskAsync(
+            _newTitle,
+            string.IsNullOrWhiteSpace(_newDescription) ? null : _newDescription,
+            _newPriority,
+            null,
+            assignedToId);
+
+        // Reset du formulaire et rechargement des donnees
+        _newTitle = "";
+        _newDescription = "";
+        _newPriority = TaskPriority.Medium;
+        _newAssignedToId = "";
+        await LoadData();
+    }
+
+    private async Task CompleteTask(Guid id)
+    {
+        await TaskService.CompleteTaskAsync(id);
+        await LoadData();
+    }
+
+    private async Task DeleteTask(Guid id)
+    {
+        await TaskService.DeleteTaskAsync(id);
+        await LoadData();
+    }
+
+    private static string GetPriorityBadgeClass(TaskPriority priority) => priority switch
+    {
+        TaskPriority.High => "bg-danger",
+        TaskPriority.Medium => "bg-warning text-dark",
+        TaskPriority.Low => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}

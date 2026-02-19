@@ -1,3 +1,4 @@
+using Ardalis.Result;
 using FamilyHub.Domain.Enums;
 
 namespace FamilyHub.Domain.Entities;
@@ -5,6 +6,15 @@ namespace FamilyHub.Domain.Entities;
 /// <summary>
 /// Represente une tache familiale (corvee, course, rendez-vous...).
 /// La logique metier vit ICI, dans le domaine, pas dans les services.
+///
+/// CQRS: Les methodes metier retournent maintenant un Result (Ardalis.Result)
+/// au lieu de bool ou d'exceptions.
+///
+/// Pourquoi le Result Pattern ?
+/// - Evite d'utiliser les exceptions comme flux de controle (anti-pattern)
+/// - Rend les erreurs EXPLICITES dans la signature de la methode
+/// - Le code appelant DOIT gerer le cas d'erreur (pas d'exception surprise)
+/// - Plus performant que les exceptions (pas de stack trace a generer)
 /// </summary>
 public class FamilyTask
 {
@@ -37,17 +47,50 @@ public class FamilyTask
 
     /// <summary>
     /// Marque la tache comme terminee.
-    /// La logique metier est dans l'entite, pas dans un service externe.
+    ///
+    /// CQRS: Retourne un Result au lieu de bool.
+    /// - Result.Success() si la tache a ete completee
+    /// - Result.Invalid() si la tache est deja terminee (erreur de validation metier)
     /// </summary>
-    public bool Complete()
+    public Result Complete()
     {
         // Regle metier : on ne peut pas completer une tache deja terminee
         if (Status == FamilyTaskStatus.Done)
-            return false;
+            return Tasks.Errors.AlreadyCompleted(Id);
 
         Status = FamilyTaskStatus.Done;
         CompletedAt = DateTime.UtcNow;
-        return true;
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Augmente la priorite de la tache d'un niveau.
+    ///
+    /// CQRS: Retourne un Result pour indiquer si l'operation a reussi.
+    /// Si la priorite est deja au maximum (High), retourne une erreur de validation.
+    /// </summary>
+    public Result IncreasePriority()
+    {
+        if (Priority == TaskPriority.High)
+            return Tasks.Errors.HighestPriority(Id);
+
+        Priority = (TaskPriority)((int)Priority + 1);
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Diminue la priorite de la tache d'un niveau.
+    ///
+    /// CQRS: Retourne un Result pour indiquer si l'operation a reussi.
+    /// Si la priorite est deja au minimum (Low), retourne une erreur de validation.
+    /// </summary>
+    public Result DecreasePriority()
+    {
+        if (Priority == TaskPriority.Low)
+            return Tasks.Errors.LowestPriority(Id);
+
+        Priority = (TaskPriority)((int)Priority - 1);
+        return Result.Success();
     }
 
     /// <summary>Verifie si la tache est en retard</summary>

@@ -7,7 +7,10 @@
     <RootNamespace>FamilyHub.Domain</RootNamespace>
   </PropertyGroup>
 
-  <!-- Le Domain n'a AUCUNE dependance externe (sauf les annotations de base) -->
-  <!-- C'est le coeur de l'application : il ne depend de RIEN d'autre -->
+  <!-- CQRS: Le Domain peut dependre d'Ardalis.Result pour exprimer les erreurs metier -->
+  <!-- Le Result Pattern remplace les exceptions pour communiquer les echecs de maniere explicite -->
+  <ItemGroup>
+    <PackageReference Include="Ardalis.Result" Version="10.1.0" />
+  </ItemGroup>
 
 </Project>

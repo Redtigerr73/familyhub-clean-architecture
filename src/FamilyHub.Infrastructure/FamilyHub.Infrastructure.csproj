@@ -13,12 +13,20 @@
     <ProjectReference Include="..\FamilyHub.Application\FamilyHub.Application.csproj" />
   </ItemGroup>
 
+  <!-- CQRS: Le Source Generator de Mediator genere le code du mediateur au compile-time -->
+  <!-- Contrairement a MediatR (reflexion), Mediator utilise la generation de code source -->
+  <!-- Avantage : performances natives, pas de reflexion, erreurs detectees a la compilation -->
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Mediator.SourceGenerator" Version="3.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.0.0" />
   </ItemGroup>
 
 </Project>

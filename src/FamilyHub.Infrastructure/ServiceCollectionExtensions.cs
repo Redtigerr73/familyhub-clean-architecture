@@ -1,8 +1,8 @@
-using FamilyHub.Application.Features.Members;
-using FamilyHub.Application.Features.ShoppingLists;
-using FamilyHub.Application.Features.Tasks;
 using FamilyHub.Application.Interfaces;
+using FamilyHub.Infrastructure.Behaviors;
 using FamilyHub.Infrastructure.Database;
+using FluentValidation;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,13 +12,14 @@ namespace FamilyHub.Infrastructure;
 /// <summary>
 /// Extension methods pour enregistrer tous les services de l'Infrastructure.
 ///
-/// Pourquoi une methode d'extension ?
-/// - Garde le Program.cs propre et lisible
-/// - Encapsule toute la configuration de l'infrastructure
-/// - Chaque couche est responsable de ses propres enregistrements
+/// CQRS: Cette classe a ete mise a jour pour enregistrer :
+/// 1. Le Mediator source-generated (pas MediatR !)
+/// 2. Les Pipeline Behaviors (Logging, Validation)
+/// 3. Les validateurs FluentValidation (via assembly scanning)
 ///
-/// C'est ICI que l'Inversion de Controle (IoC) se concretise :
-/// on "branche" les implementations concretes sur les interfaces.
+/// Le Mediator remplace les services (TaskService, MemberService, ShoppingService).
+/// Au lieu d'injecter un service specifique, on injecte ISender et on envoie
+/// des commandes/requetes. Le Mediator les route vers le bon handler.
 /// </summary>
 public static class ServiceCollectionExtensions
 {
@@ -34,14 +35,27 @@ public static class ServiceCollectionExtensions
             options.UseSqlServer(connectionString));
 
         // 2. Enregistrement de l'interface IFamilyHubDbContext -> FamilyHubDbContext
-        // Scoped = une instance par requete HTTP (ou par scope DI)
         services.AddScoped<IFamilyHubDbContext>(provider =>
             provider.GetRequiredService<FamilyHubDbContext>());
 
-        // 3. Enregistrement des services applicatifs
-        services.AddScoped<MemberService>();
-        services.AddScoped<TaskService>();
-        services.AddScoped<ShoppingService>();
+        // 3. CQRS: Enregistrement du Mediator source-generated
+        // AddMediator() scanne l'assembly pour trouver tous les handlers
+        // et genere le code de routage au compile-time (pas de reflexion !)
+        services.AddMediator(options =>
+        {
+            // L'assembly qui contient les handlers (Application layer)
+            options.ServiceLifetime = ServiceLifetime.Scoped;
+        });
+
+        // 4. CQRS: Enregistrement des Pipeline Behaviors
+        // L'ordre d'enregistrement = l'ordre d'execution dans le pipeline :
+        // Logging -> Validation -> Handler
+        services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
+        services.AddSingleton(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
+        // 5. CQRS: Enregistrement des validateurs FluentValidation
+        // Scanne l'assembly Application pour trouver tous les AbstractValidator<T>
+        services.AddValidatorsFromAssemblyContaining<Application.Features.Tasks.CreateTaskValidator>();
 
         return services;
     }

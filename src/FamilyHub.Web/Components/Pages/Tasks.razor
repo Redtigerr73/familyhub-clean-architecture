@@ -1,18 +1,22 @@
 @page "/tasks"
 @using FamilyHub.Application.Features.Tasks
 @using FamilyHub.Application.Features.Members
-@inject TaskService TaskService
-@inject MemberService MemberService
+@using Mediator
+@inject ISender Sender
 
 <!--
     Page de gestion des taches familiales.
 
-    Architecture : cette page (couche Presentation) utilise le TaskService (couche Application)
-    qui lui-meme utilise le DbContext (couche Infrastructure) pour acceder aux donnees.
+    CQRS: Cette page utilise ISender (Mediator) au lieu de TaskService/MemberService.
 
-    La page ne sait PAS comment les donnees sont stockees.
-    Elle ne sait PAS quel est le SGBD utilise.
-    Elle sait juste qu'elle peut appeler TaskService.
+    Comparaison avec l'ancien code :
+    - AVANT : await TaskService.CreateTaskAsync(title, desc, priority, dueDate, assignedToId)
+    - APRES : await Sender.Send(new CreateTask(title, desc, priority, dueDate, assignedToId))
+
+    L'avantage : chaque "action" est un objet (commande/requete) qu'on peut :
+    - Valider automatiquement (ValidationBehavior)
+    - Logger automatiquement (LoggingBehavior)
+    - Serialiser, mettre en file d'attente, rejouer...
 -->
 
 <h1>Taches Familiales</h1>
@@ -86,7 +90,7 @@ else
                         </span>
                     </td>
                     <td>@task.Status</td>
-                    <td>@(task.AssignedTo?.FullName ?? "Non assigne")</td>
+                    <td>@(task.AssignedToName ?? "Non assigne")</td>
                     <td>@(task.DueDate?.ToString("dd/MM/yyyy") ?? "-")</td>
                     <td>
                         @if (task.Status != FamilyTaskStatus.Done)
@@ -108,8 +112,9 @@ else
 }
 
 @code {
-    private IReadOnlyList<FamilyTask> _tasks = [];
-    private IReadOnlyList<FamilyMember> _members = [];
+    // CQRS: On utilise des DTOs (TaskDto, MemberDto) au lieu des entites du domaine
+    private IReadOnlyList<TaskDto> _tasks = [];
+    private IReadOnlyList<MemberDto> _members = [];
 
     // Champs du formulaire
     private string _newTitle = "";
@@ -124,8 +129,15 @@ else
 
     private async Task LoadData()
     {
-        _tasks = await TaskService.GetAllTasksAsync();
-        _members = await MemberService.GetAllMembersAsync();
+        // CQRS: On envoie des Queries via le Mediator
+        var tasksResult = await Sender.Send(new GetTasks());
+        var membersResult = await Sender.Send(new GetMembers());
+
+        if (tasksResult.IsSuccess)
+            _tasks = tasksResult.Value;
+
+        if (membersResult.IsSuccess)
+            _members = membersResult.Value;
     }
 
     private async Task CreateTask()
@@ -134,12 +146,15 @@ else
 
         Guid? assignedToId = Guid.TryParse(_newAssignedToId, out var id) ? id : null;
 
-        await TaskService.CreateTaskAsync(
+        // CQRS: On envoie une Command via le Mediator
+        // La commande CreateTask sera validee par CreateTaskValidator
+        // puis executee par CreateTaskHandler
+        await Sender.Send(new CreateTask(
             _newTitle,
             string.IsNullOrWhiteSpace(_newDescription) ? null : _newDescription,
             _newPriority,
             null,
-            assignedToId);
+            assignedToId));
 
         // Reset du formulaire et rechargement des donnees
         _newTitle = "";
@@ -151,13 +166,15 @@ else
 
     private async Task CompleteTask(Guid id)
     {
-        await TaskService.CompleteTaskAsync(id);
+        // CQRS: Commande pour completer une tache
+        await Sender.Send(new CompleteTask(id));
         await LoadData();
     }
 
     private async Task DeleteTask(Guid id)
     {
-        await TaskService.DeleteTaskAsync(id);
+        // CQRS: Commande pour supprimer une tache
+        await Sender.Send(new DeleteTask(id));
         await LoadData();
     }
 

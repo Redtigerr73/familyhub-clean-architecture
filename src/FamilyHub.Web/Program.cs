@@ -1,5 +1,7 @@
 using FamilyHub.Infrastructure;
 using FamilyHub.Infrastructure.Database;
+using FamilyHub.Web.Endpoints;
+using FamilyHub.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 // ===================================================================
@@ -19,13 +21,24 @@ builder.Services.AddRazorComponents()
 // Un seul appel qui cache toute la complexite grace a la methode d'extension
 builder.Services.AddFamilyHub(builder.Configuration);
 
+// SECURITE: Gestionnaire global des exceptions
+// Intercepte toutes les exceptions non gerees et retourne des ProblemDetails securises
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
 var app = builder.Build();
 
 // --- Configuration du pipeline HTTP ---
 
+// SECURITE: Correlation ID pour tracer chaque requete dans les logs
+// Place AVANT le gestionnaire d'exceptions pour que l'ID soit disponible partout
+app.UseMiddleware<CorrelationIdMiddleware>();
+
+// SECURITE: Gestionnaire global des exceptions (remplace le handler par defaut)
+app.UseExceptionHandler();
+
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
 
@@ -35,6 +48,9 @@ app.UseAntiforgery();
 
 app.MapRazorComponents<FamilyHub.Web.Components.App>()
     .AddInteractiveServerRenderMode();
+
+// API REST : Endpoints pour les taches (demontre la gestion d'erreurs)
+app.MapTaskEndpoints();
 
 // --- Creation automatique de la base de donnees en developpement ---
 if (app.Environment.IsDevelopment())

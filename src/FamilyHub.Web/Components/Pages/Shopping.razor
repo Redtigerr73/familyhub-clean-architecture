@@ -1,6 +1,14 @@
 @page "/shopping"
 @using FamilyHub.Application.Features.ShoppingLists
-@inject ShoppingService ShoppingService
+@using Mediator
+@inject ISender Sender
+
+<!--
+    Page de gestion de la liste de courses familiale.
+
+    CQRS: Utilise ISender au lieu de ShoppingService.
+    Les DTOs (ShoppingItemDto) remplacent les entites du domaine dans la vue.
+-->
 
 <h1>Liste de Courses</h1>
 
@@ -88,7 +96,8 @@ else
 }
 
 @code {
-    private IReadOnlyList<ShoppingItem> _items = [];
+    // CQRS: On utilise ShoppingItemDto au lieu de ShoppingItem (entite du domaine)
+    private IReadOnlyList<ShoppingItemDto> _items = [];
     private string _name = "";
     private int _quantity = 1;
     private string _category = "";
@@ -101,19 +110,22 @@ else
 
     private async Task LoadItems()
     {
-        _items = _showAll
-            ? await ShoppingService.GetShoppingListAsync()
-            : await ShoppingService.GetUnpurchasedItemsAsync();
+        // CQRS: Query via le Mediator avec parametre de filtre
+        var result = await Sender.Send(new GetShoppingList(ShowPurchased: _showAll));
+        if (result.IsSuccess)
+            _items = result.Value;
     }
 
     private async Task AddItem()
     {
         if (string.IsNullOrWhiteSpace(_name)) return;
 
-        await ShoppingService.AddItemAsync(
-            _name, _quantity,
+        // CQRS: Command via le Mediator
+        await Sender.Send(new AddShoppingItem(
+            _name,
+            _quantity,
             string.IsNullOrWhiteSpace(_category) ? null : _category,
-            null);
+            null));
 
         _name = "";
         _quantity = 1;
@@ -123,13 +135,15 @@ else
 
     private async Task MarkPurchased(Guid id)
     {
-        await ShoppingService.MarkAsPurchasedAsync(id);
+        // CQRS: Command via le Mediator
+        await Sender.Send(new MarkItemPurchased(id));
         await LoadItems();
     }
 
     private async Task DeleteItem(Guid id)
     {
-        await ShoppingService.DeleteItemAsync(id);
+        // CQRS: Command via le Mediator
+        await Sender.Send(new DeleteShoppingItem(id));
         await LoadItems();
     }
 }

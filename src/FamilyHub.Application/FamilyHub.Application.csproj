@@ -13,8 +13,15 @@
     <ProjectReference Include="..\FamilyHub.Domain\FamilyHub.Domain.csproj" />
   </ItemGroup>
 
+  <!-- CQRS: Packages necessaires pour l'architecture CQRS + Mediator -->
+  <!-- Mediator.Abstractions : interfaces ICommand, IQuery, ICommandHandler, IQueryHandler -->
+  <!-- FluentValidation : validation declarative des commandes/requetes -->
+  <!-- Ardalis.Result : Result Pattern pour eviter les exceptions comme flux de controle -->
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
+    <PackageReference Include="Mediator.Abstractions" Version="3.0.1" />
+    <PackageReference Include="FluentValidation" Version="12.0.0" />
+    <PackageReference Include="Ardalis.Result" Version="10.1.0" />
   </ItemGroup>
 
 </Project>

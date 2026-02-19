@@ -1,6 +1,14 @@
 @page "/members"
 @using FamilyHub.Application.Features.Members
-@inject MemberService MemberService
+@using Mediator
+@inject ISender Sender
+
+<!--
+    Page de gestion des membres de la famille.
+
+    CQRS: Utilise ISender au lieu de MemberService.
+    Les DTOs (MemberDto) remplacent les entites du domaine dans la vue.
+-->
 
 <h1>Membres de la Famille</h1>
 
@@ -57,7 +65,8 @@ else
                             }
                         </p>
                         <p class="card-text">
-                            <small>Taches assignees : @member.AssignedTasks.Count</small>
+                            <!-- CQRS: Le DTO contient le compteur de taches directement -->
+                            <small>Taches assignees : @member.AssignedTaskCount</small>
                         </p>
                         <button @onclick="() => DeleteMember(member.Id)"
                                 class="btn btn-sm btn-outline-danger">
@@ -71,7 +80,8 @@ else
 }
 
 @code {
-    private IReadOnlyList<FamilyMember> _members = [];
+    // CQRS: On utilise MemberDto au lieu de FamilyMember (entite du domaine)
+    private IReadOnlyList<MemberDto> _members = [];
     private string _firstName = "";
     private string _lastName = "";
     private string _email = "";
@@ -84,17 +94,22 @@ else
 
     private async Task LoadMembers()
     {
-        _members = await MemberService.GetAllMembersAsync();
+        // CQRS: Query via le Mediator
+        var result = await Sender.Send(new GetMembers());
+        if (result.IsSuccess)
+            _members = result.Value;
     }
 
     private async Task AddMember()
     {
         if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName)) return;
 
-        await MemberService.CreateMemberAsync(
-            _firstName, _lastName,
+        // CQRS: Command via le Mediator
+        await Sender.Send(new CreateMember(
+            _firstName,
+            _lastName,
             string.IsNullOrWhiteSpace(_email) ? null : _email,
-            _role);
+            _role));
 
         _firstName = "";
         _lastName = "";
@@ -105,7 +120,8 @@ else
 
     private async Task DeleteMember(Guid id)
     {
-        await MemberService.DeleteMemberAsync(id);
+        // CQRS: Command via le Mediator
+        await Sender.Send(new DeleteMember(id));
         await LoadMembers();
     }
 }

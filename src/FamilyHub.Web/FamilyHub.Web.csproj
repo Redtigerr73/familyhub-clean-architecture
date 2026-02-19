@@ -13,4 +13,9 @@
     <ProjectReference Include="..\FamilyHub.Infrastructure\FamilyHub.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!-- CQRS: Ardalis.Result.AspNetCore pour convertir les Result en reponses HTTP -->
+  <ItemGroup>
+    <PackageReference Include="Ardalis.Result.AspNetCore" Version="10.1.0" />
+  </ItemGroup>
+
 </Project>

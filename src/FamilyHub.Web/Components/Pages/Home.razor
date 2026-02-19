@@ -1,15 +1,21 @@
 @page "/"
 @using FamilyHub.Application.Features.Tasks
 @using FamilyHub.Application.Features.Members
-@inject TaskService TaskService
-@inject MemberService MemberService
+@using Mediator
+@inject ISender Sender
 
 @*
     Page d'accueil de FamilyHub.
     Affiche un tableau de bord avec les statistiques de la famille.
 
-    inject : C'est l'injection de dependances de Blazor.
-    Le framework injecte automatiquement les services enregistres dans le DI container.
+    CQRS: Au lieu d'injecter des services specifiques (TaskService, MemberService),
+    on injecte ISender. C'est le point d'entree unique du Mediator.
+
+    ISender.Send() envoie une commande ou requete au Mediator,
+    qui la route automatiquement vers le bon handler.
+
+    Avantage : la page ne depend plus de services concrets,
+    elle depend uniquement de l'interface ISender (decouplage maximal).
 *@
 
 <h1>Bienvenue sur FamilyHub</h1>
@@ -52,9 +58,9 @@
                 <li>
                     <strong>@task.Title</strong>
                     - Echeance : @task.DueDate?.ToString("dd/MM/yyyy")
-                    @if (task.AssignedTo is not null)
+                    @if (task.AssignedToName is not null)
                     {
-                        <span class="text-muted">(@task.AssignedTo.FullName)</span>
+                        <span class="text-muted">(@task.AssignedToName)</span>
                     }
                 </li>
             }
@@ -66,17 +72,28 @@
     private int _memberCount;
     private int _activeTaskCount;
     private int _overdueCount;
-    private IReadOnlyList<FamilyTask> _overdueTasks = [];
+    private IReadOnlyList<TaskDto> _overdueTasks = [];
 
     // OnInitializedAsync : appele une seule fois quand le composant est cree
     protected override async Task OnInitializedAsync()
     {
-        var members = await MemberService.GetAllMembersAsync();
-        var tasks = await TaskService.GetAllTasksAsync();
-        _overdueTasks = await TaskService.GetOverdueTasksAsync();
+        // CQRS: On envoie des requetes (Queries) via ISender
+        // Le Mediator route chaque requete vers le bon QueryHandler
+        var membersResult = await Sender.Send(new GetMembers());
+        var tasksResult = await Sender.Send(new GetTasks());
+        var overdueResult = await Sender.Send(new GetTasks(OverdueOnly: true));
 
-        _memberCount = members.Count;
-        _activeTaskCount = tasks.Count(t => t.Status != FamilyTaskStatus.Done);
-        _overdueCount = _overdueTasks.Count;
+        // CQRS: On verifie le resultat avant d'utiliser les donnees
+        if (membersResult.IsSuccess)
+            _memberCount = membersResult.Value.Count;
+
+        if (tasksResult.IsSuccess)
+            _activeTaskCount = tasksResult.Value.Count(t => t.Status != FamilyTaskStatus.Done);
+
+        if (overdueResult.IsSuccess)
+        {
+            _overdueTasks = overdueResult.Value;
+            _overdueCount = _overdueTasks.Count;
+        }
     }
 }
